@@ -1,5 +1,6 @@
 <template>
   <div v-if="!isLoggedIn" class="flex justify-center items-center h-screen bg-gradient-to-r from-blue-400 to-purple-500">
+    <!-- Login Form -->
     <div class="bg-white p-8 rounded shadow-md max-w-md w-full sm:w-auto">
       <h2 class="text-3xl mb-6 text-center font-bold text-gray-800">Login</h2>
       <form @submit.prevent="login" class="space-y-4">
@@ -19,6 +20,7 @@
     </div>
   </div>
   <div v-else>
+    <!-- Logout Button -->
     <button @click="logout" class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded fixed bottom-4 right-4">Logout</button>
     <!-- MQTT functionality -->
     <div class="flex justify-center flex-row gap-10 pt-40">
@@ -79,9 +81,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import mqtt from "mqtt";
-import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import Swal from "sweetalert2";
 
 // Firebase authentication
@@ -128,64 +130,38 @@ function ledToggle(topic: string, isChecked: boolean) {
 }
 
 // Login function
-// Login function
 async function login() {
   try {
-    await signInWithEmailAndPassword(
-        auth,
-        username.value,
-        password.value
-    );
-    // Login successful, show SweetAlert
-    Swal.fire({
-      icon: "success",
-      title: "Success!",
-      text: "Login successful!",
-      showConfirmButton: false,
-      timer: 1500, // Close the alert after 1.5 seconds
-    });
-    isLoggedIn.value = true; // Set login status to true
-    // Clear the form fields
-    clearForm();
+    await signInWithEmailAndPassword(auth, username.value, password.value);
   } catch (error: any) {
-    // Handle login errors
-    if (
-        error.code === "auth/user-not-found" ||
-        error.code === "auth/wrong-password"
-    ) {
-      Swal.fire({
-        icon: "error",
-        title: "Fail",
-        text: "Invalid username or password",
-      });
+    if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
+      Swal.fire({ icon: "error", title: "Fail", text: "Invalid username or password" });
     } else {
-      Swal.fire({
-        icon: "error",
-        title: "Oops...",
-        text: error.message,
-      });
+      Swal.fire({ icon: "error", title: "Oops...", text: error.message });
     }
+    return;
   }
 }
-
 
 // Logout function
 async function logout() {
   try {
     await signOut(auth);
-    isLoggedIn.value = false; // Set login status to false
   } catch (error) {
     console.error("Error logging out:", error);
   }
-}
+
 
 // Clear form fields function
-function clearForm() {
-  // Clear the form fields
-  username.value = "";
-  password.value = "";
-  showWarning.value = false;
+
 }
+
+// Listen for authentication state changes
+onMounted(() => {
+  onAuthStateChanged(auth, (user) => {
+    isLoggedIn.value = !!user;
+  });
+});
 </script>
 
 <style scoped>
