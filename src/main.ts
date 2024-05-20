@@ -1,7 +1,42 @@
-import { createApp } from 'vue'
-import './style.css'
-import App from './App.vue'
+import { createApp } from 'vue';
+import './style.css';
+import App from './App.vue';
 import { initializeApp } from "firebase/app";
+
+
+
+import router from './router';
+// Import your firebase configuration
+
+// // Check authentication state before initializing the app
+// auth.onAuthStateChanged(() => {
+//     createApp(App)
+//         .use(router)
+//         .mount('#app');
+// });
+
+// const routes = [
+//     {
+//         path: '/login',
+//         name: 'login',
+//         component: LoginForm,
+//     },
+//
+//     {
+//         path: '/register',
+//         name: 'register',
+//         component: RegisterForm,
+//     },
+//     // Other routes...
+// ];
+
+// const router = createRouter({
+//     history: createWebHistory(),
+//     routes,
+// });
+//
+// export default router;
+
 
 const firebaseConfig = {
     apiKey: "AIzaSyC5xEDeMWotJzxi_0gq82CovrY_RgHk-3A",
@@ -16,4 +51,6 @@ const firebaseConfig = {
 
 initializeApp(firebaseConfig);
 
-createApp(App).mount('#app')
+const app = createApp(App);
+app.use(router);
+app.mount('#app');
