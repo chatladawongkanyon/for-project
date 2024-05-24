@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 
 // Properties
 const router = useRouter();
@@ -38,17 +39,18 @@ const showWarning = ref(false);
 
 // Methods
 function login() {
-  // Your login logic here
-  // For demo purposes, let's assume the login is successful
-  const isLoggedIn = true; // Replace with actual login logic
+  const auth = getAuth();
 
-  if (isLoggedIn) {
-    // Navigate to LedControlView.vue if login successful
-    router.push("/led-control");
-  } else {
-    // Display error message if login fails
-    showWarning.value = true;
-  }
+  signInWithEmailAndPassword(auth, username.value, password.value)
+      .then(() => {
+        // Signed in successfully, navigate to LedControlView.vue
+        router.push("/dashboard");
+      })
+      .catch((error) => {
+        // Display error message if login fails
+        showWarning.value = true;
+        console.error("Login error:", error.code, error.message);
+      });
 }
 
 function openRegisterModal() {

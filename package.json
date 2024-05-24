@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "firebase": "^10.11.1",
+    "main": "^1000.0.1",
     "mqtt": "^5.5.5",
     "sweetalert2": "^11.11.0",
-    "vue": "^3.4.21"
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",

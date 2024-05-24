@@ -25,8 +25,7 @@
 <script lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { createUserWithEmailAndPassword } from "firebase/auth"; // Import createUserWithEmailAndPassword function
-import { auth } from "../firebase"; // Import auth from firebase.ts
+import {createUserWithEmailAndPassword, getAuth} from "firebase/auth"; // Import createUserWithEmailAndPassword function
 
 export default {
   setup() {
@@ -36,10 +35,15 @@ export default {
 
     async function registerUser() {
       try {
-        await createUserWithEmailAndPassword(auth, registerUsername.value, registerPassword.value);
-        setTimeout(() => {
-          router.push("/login");
-        }, 1500);
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          await createUserWithEmailAndPassword(auth, registerUsername.value, registerPassword.value);
+          await auth.signOut();
+          setTimeout(() => {
+            router.push("/login");
+          }, 1500);
+        }
       } catch (error) {
         console.error(error);
       }

@@ -1,7 +1,7 @@
 <template>
   <div class="flex justify-center flex-row gap-10 pt-40">
     <!-- TEST1 -->
-    <div class="border card w-96 bg-base-100 shadow-xl">
+    <div v-if="isAuthenticated" class="border card w-96 bg-base-100 shadow-xl">
       <figure>
         <img src="https://cdn.coingaming.io/casino-hub88/PGsoft/fortune-ox-thumbnail.jpg" alt="Shoes" />
       </figure>
@@ -27,7 +27,7 @@
       </div>
     </div>
     <!-- TEST2 -->
-    <div class="border card w-96 bg-base-100 shadow-xl">
+    <div v-if="isAuthenticated" class="border card w-96 bg-base-100 shadow-xl">
       <figure>
         <img src="https://cdn.hub88.io/pgsoft/pgs_fortunemouse.jpg" alt="Shoes" />
       </figure>
@@ -50,18 +50,24 @@
           </div>
         </div>
         <div class="card-actions justify-end"></div>
-        <button @click="logout" class="fixed bottom-4 right-4 bg-red-500 hover:bg-red-700 text-white px-4 py-2 rounded-full shadow-md">
-          Logout
-        </button>
+        <div class="fixed bottom-4 right-4 flex flex-col items-end space-y-2">
+          <button @click="goToDashboard" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-md">
+            Dashboard
+          </button>
+          <button @click="logout" class="bg-red-500 hover:bg-red-700 text-white px-4 py-2 rounded-full shadow-md">
+            Logout
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import mqtt from 'mqtt';
+import { auth } from '../firebaseConfig';
 
 const client = mqtt.connect('wss://test.mosquitto.org:8081');
 
@@ -69,6 +75,7 @@ const test1led1 = ref(false);
 const test1led2 = ref(false);
 const test2led1 = ref(false);
 const test2led2 = ref(false);
+const isAuthenticated = ref(false);
 
 client.on('message', (topic, payload) => {
   if (topic === 'TEST1/LED1') {
@@ -90,6 +97,23 @@ function ledToggle(topic: string, isChecked: boolean) {
 const router = useRouter();
 
 function logout() {
-  router.push('/login');
+  auth.signOut().then(() => {
+    router.push('/login');
+  }).catch((error) => {
+    console.error('Sign out error:', error);
+  });
 }
+
+function goToDashboard() {
+  router.push('/dashboard');
+}
+
+auth.onAuthStateChanged((user) => {
+  isAuthenticated.value = !!user;
+});
+
+// Check authentication state on component mount
+onMounted(() => {
+  isAuthenticated.value = !!auth.currentUser;
+});
 </script>
