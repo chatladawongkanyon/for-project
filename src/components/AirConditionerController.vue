@@ -11,8 +11,7 @@
             <div class="flex flex-col">
               <div class="form-control w-52">
                 <label class="cursor-pointer label">
-                  <span class="label-text">Turn On</span>
-                  <input type="checkbox" class="toggle toggle-primary" v-model="isOn" @change="togglePower" />
+                  <input type="checkbox" class="toggle toggle-accent" v-model="isOn" @change="togglePower" />
                 </label>
               </div>
             </div>
@@ -25,53 +24,95 @@
         </div>
       </div>
       <div class="fixed bottom-4 right-4 flex flex-col items-end space-y-2">
-        <button @click="goToDashboard" class="btn btn-primary">
-          Dashboard
-        </button>
-        <button @click="logout" class="btn btn-error">
-          Logout
-        </button>
+        <button @click="goToDashboard" class="btn btn-primary">Dashboard</button>
+        <button @click="logout" class="btn btn-error">Logout</button>
       </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { auth } from '../firebaseConfig';
+import * as mqtt from 'mqtt';
 
-const isOn = ref(false);
-const temperature = ref(24);
-const router = useRouter();
+export default {
+  setup() {
+    const isOn = ref(false);
+    const temperature = ref(24);
+    const router = useRouter();
+    const mqttServer = 'ws://test.mosquitto.org:8081'; // Update MQTT server
+    const mqttName = 'AirTest';
+    let client: mqtt.MqttClient | null = null;
 
-const togglePower = () => {
-  // This function is not necessary with Daisy UI's toggle switch
-  // Just toggling the isOn value is enough
-};
+    const togglePower = () => {
+      if (isOn.value) {
+        turnOnAC();
+      } else {
+        turnOffAC();
+      }
+    };
 
-const increaseTemperature = () => {
-  if (isOn.value && temperature.value < 30) {
-    temperature.value++;
+    const increaseTemperature = () => {
+      if (isOn.value && temperature.value < 30) {
+        temperature.value++;
+        sendTemperatureToMQTT();
+      }
+    };
+
+    const decreaseTemperature = () => {
+      if (isOn.value && temperature.value > 16) {
+        temperature.value--;
+        sendTemperatureToMQTT();
+      }
+    };
+
+    const logout = () => {
+      auth.signOut().then(() => {
+        router.push('/login');
+      }).catch((error) => {
+        console.error('Sign out error:', error);
+      });
+    };
+
+    const goToDashboard = () => {
+      router.push('/dashboard');
+    };
+
+    const connectToMQTT = () => {
+      client = mqtt.connect(mqttServer);
+      client.on('connect', () => {
+        console.log('Connected to MQTT Broker');
+      });
+      client.on('error', (error) => {
+        console.error('MQTT Error:', error);
+      });
+    };
+
+    const turnOnAC = () => {
+      if (!client) {
+        connectToMQTT();
+      }
+      client?.publish(mqttName, 'on');
+    };
+
+    const turnOffAC = () => {
+      if (!client) {
+        connectToMQTT();
+      }
+      client?.publish(mqttName, 'off');
+    };
+
+    const sendTemperatureToMQTT = () => {
+      if (!client) {
+        connectToMQTT();
+      }
+      client?.publish(mqttName, temperature.value.toString());
+    };
+
+    return { isOn, temperature, togglePower, increaseTemperature, decreaseTemperature, logout, goToDashboard };
   }
-};
-
-const decreaseTemperature = () => {
-  if (isOn.value && temperature.value > 16) {
-    temperature.value--;
-  }
-};
-
-const logout = () => {
-  auth.signOut().then(() => {
-    router.push('/login');
-  }).catch((error) => {
-    console.error('Sign out error:', error);
-  });
-};
-
-const goToDashboard = () => {
-  router.push('/dashboard');
 };
 </script>
 
@@ -92,3 +133,4 @@ const goToDashboard = () => {
   cursor: not-allowed;
 }
 </style>
+``
