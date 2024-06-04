@@ -31,20 +31,20 @@
   </div>
 </template>
 
-<script lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { auth } from '../firebaseConfig';
-import * as mqtt from 'mqtt';
+<script>
+import {ref} from 'vue';
+import {useRouter} from 'vue-router';
+import {auth} from '../firebaseConfig';
+import mqtt from 'mqtt';
 
 export default {
   setup() {
     const isOn = ref(false);
     const temperature = ref(24);
     const router = useRouter();
-    const mqttServer = 'ws://test.mosquitto.org:8081'; // Update MQTT server
+    const mqttServer = 'wss://test.mosquitto.org:8081'; // Update MQTT server
     const mqttName = 'AirTest';
-    let client: mqtt.MqttClient | null = null;
+    let client = null;
 
     const togglePower = () => {
       if (isOn.value) {
@@ -94,24 +94,24 @@ export default {
       if (!client) {
         connectToMQTT();
       }
-      client?.publish(mqttName, 'on');
+      client.publish(mqttName, 'on');
     };
 
     const turnOffAC = () => {
       if (!client) {
         connectToMQTT();
       }
-      client?.publish(mqttName, 'off');
+      client.publish(mqttName, 'off');
     };
 
     const sendTemperatureToMQTT = () => {
       if (!client) {
         connectToMQTT();
       }
-      client?.publish(mqttName, temperature.value.toString());
+      client.publish(mqttName, temperature.value.toString());
     };
 
-    return { isOn, temperature, togglePower, increaseTemperature, decreaseTemperature, logout, goToDashboard };
+    return {isOn, temperature, togglePower, increaseTemperature, decreaseTemperature, logout, goToDashboard};
   }
 };
 </script>
@@ -133,4 +133,3 @@ export default {
   cursor: not-allowed;
 }
 </style>
-``
