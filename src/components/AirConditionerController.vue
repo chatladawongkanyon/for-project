@@ -31,88 +31,85 @@
   </div>
 </template>
 
-<script>
-import {ref} from 'vue';
-import {useRouter} from 'vue-router';
-import {auth} from '../firebaseConfig';
-import mqtt from 'mqtt';
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { auth } from '../firebaseConfig';
+import mqtt, { MqttClient } from 'mqtt'; // Import MqttClient type
 
-export default {
-  setup() {
-    const isOn = ref(false);
-    const temperature = ref(24);
-    const router = useRouter();
-    const mqttServer = 'wss://test.mosquitto.org:8081'; // Update MQTT server
-    const mqttName = 'AirTest';
-    let client = null;
+const isOn = ref(false);
+const temperature = ref(24);
+const router = useRouter();
+const mqttServer = 'wss://test.mosquitto.org:8081';
+const mqttName = 'AirTest';
+let client: MqttClient | null = null; // Explicitly define the type
 
-    const togglePower = () => {
-      if (isOn.value) {
-        turnOnAC();
-      } else {
-        turnOffAC();
-      }
-    };
-
-    const increaseTemperature = () => {
-      if (isOn.value && temperature.value < 30) {
-        temperature.value++;
-        sendTemperatureToMQTT();
-      }
-    };
-
-    const decreaseTemperature = () => {
-      if (isOn.value && temperature.value > 16) {
-        temperature.value--;
-        sendTemperatureToMQTT();
-      }
-    };
-
-    const logout = () => {
-      auth.signOut().then(() => {
-        router.push('/login');
-      }).catch((error) => {
-        console.error('Sign out error:', error);
-      });
-    };
-
-    const goToDashboard = () => {
-      router.push('/dashboard');
-    };
-
-    const connectToMQTT = () => {
-      client = mqtt.connect(mqttServer);
-      client.on('connect', () => {
-        console.log('Connected to MQTT Broker');
-      });
-      client.on('error', (error) => {
-        console.error('MQTT Error:', error);
-      });
-    };
-
-    const turnOnAC = () => {
-      if (!client) {
-        connectToMQTT();
-      }
-      client.publish(mqttName, 'on');
-    };
-
-    const turnOffAC = () => {
-      if (!client) {
-        connectToMQTT();
-      }
-      client.publish(mqttName, 'off');
-    };
-
-    const sendTemperatureToMQTT = () => {
-      if (!client) {
-        connectToMQTT();
-      }
-      client.publish(mqttName, temperature.value.toString());
-    };
-
-    return {isOn, temperature, togglePower, increaseTemperature, decreaseTemperature, logout, goToDashboard};
+const togglePower = () => {
+  if (isOn.value) {
+    turnOnAC();
+  } else {
+    turnOffAC();
   }
+};
+
+const increaseTemperature = () => {
+  if (isOn.value && temperature.value < 30) {
+    temperature.value++;
+    sendTemperatureToMQTT();
+  }
+};
+
+const decreaseTemperature = () => {
+  if (isOn.value && temperature.value > 16) {
+    temperature.value--;
+    sendTemperatureToMQTT();
+  }
+};
+
+const logout = () => {
+  auth.signOut().then(() => {
+    router.push('/login');
+  }).catch((error: Error) => {
+    console.error('Sign out error:', error);
+  });
+};
+
+const goToDashboard = () => {
+  router.push('/dashboard');
+};
+
+const connectToMQTT = () => {
+  client = mqtt.connect(mqttServer);
+  client.on('connect', () => {
+    console.log('Connected to MQTT Broker');
+  });
+  client.on('error', (error: Error) => {
+    console.error('MQTT Error:', error);
+  });
+};
+
+const turnOnAC = () => {
+  if (!client) {
+    connectToMQTT();
+  }
+  client = client as MqttClient;
+  client.publish(mqttName, 'on');
+};
+
+const turnOffAC = () => {
+  if (!client) {
+    connectToMQTT();
+  }
+  client = client as MqttClient;
+  client.publish(mqttName, 'off');
+};
+
+const sendTemperatureToMQTT = () => {
+  if (!client) {
+    connectToMQTT();
+  }
+  client = client as MqttClient;
+  client.publish(mqttName, temperature.value.toString());
 };
 </script>
 
