@@ -21,6 +21,9 @@
               <button :class="['btn', 'btn-secondary', { 'btn-disabled': !isOn }]" @click="increaseTemperature" :disabled="!isOn">+</button>
             </div>
           </div>
+          <div class="mt-4">
+            <h3 class="text-lg font-semibold">Sensor Temperature: {{ sensorTemperatureCelsius }}°C / {{ sensorTemperatureFahrenheit }}°F</h3>
+          </div>
         </div>
       </div>
       <div class="fixed bottom-4 right-4 flex flex-col items-end space-y-2">
@@ -31,18 +34,23 @@
   </div>
 </template>
 
+
+
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { auth } from '../firebaseConfig';
-import mqtt, { MqttClient } from 'mqtt'; // Import MqttClient type
+import mqtt, { MqttClient } from 'mqtt';
 
 const isOn = ref(false);
 const temperature = ref(24);
+const sensorTemperatureCelsius = ref(0); // Ref for sensor temperature in Celsius
+const sensorTemperatureFahrenheit = ref(0); // Ref for sensor temperature in Fahrenheit
 const router = useRouter();
 const mqttServer = 'wss://test.mosquitto.org:8081';
 const mqttName = 'AirTest';
-let client: MqttClient | null = null; // Explicitly define the type
+const sensorTopic = 'AirTest/temperature'; // Define the sensor topic
+let client: MqttClient | null = null;
 
 const togglePower = () => {
   if (isOn.value) {
@@ -82,10 +90,31 @@ const connectToMQTT = () => {
   client = mqtt.connect(mqttServer);
   client.on('connect', () => {
     console.log('Connected to MQTT Broker');
+    subscribeToSensorTopic();
   });
   client.on('error', (error: Error) => {
     console.error('MQTT Error:', error);
   });
+  client.on('message', (topic, message) => {console.log(sensorTopic);
+    console.log(message);
+    if (topic === sensorTopic) {
+      const sensorTempCelsius = parseFloat(message.toString());
+      sensorTemperatureCelsius.value = sensorTempCelsius;
+      sensorTemperatureFahrenheit.value = (sensorTempCelsius * 9/5) + 32; // Convert to Fahrenheit
+    }
+  });
+};
+
+const subscribeToSensorTopic = () => {
+  if (client) {
+    client.subscribe(sensorTopic, (err) => {
+      if (err) {
+        console.error('Subscription error:', err);
+      } else {
+        console.log('Subscribed to sensor topic');
+      }
+    });
+  }
 };
 
 const turnOnAC = () => {
@@ -111,7 +140,20 @@ const sendTemperatureToMQTT = () => {
   client = client as MqttClient;
   client.publish(mqttName, temperature.value.toString());
 };
+
+onMounted(() => {
+  connectToMQTT();
+});
+
+onUnmounted(() => {
+  if (client) {
+    client.end();
+  }
+});
 </script>
+
+
+
 
 <style scoped>
 .full-background {
