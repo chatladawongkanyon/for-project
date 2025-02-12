@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import AirConditionerController from "../components/AirConditionerController.vue";
+import AirConditionerController from "../components/SystemCheck.vue";
 </script>
 
 <style scoped>

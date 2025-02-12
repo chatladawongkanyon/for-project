@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import LedControl from '../components/LedControl.vue';
+import LedControl from '../components/ParkingLayout.vue';
 </script>
 
 <style scoped>

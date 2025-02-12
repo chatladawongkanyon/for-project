@@ -7,14 +7,14 @@ import router from './router';
 
 // Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyC5xEDeMWotJzxi_0gq82CovrY_RgHk-3A",
-    authDomain: "test-31238.firebaseapp.com",
-    projectId: "test-31238",
-    storageBucket: "test-31238.appspot.com",
-    messagingSenderId: "950336663151",
-    appId: "1:950336663151:web:d18ca25ef16fe84442279a",
-    measurementId: "G-YHMZKYTNQ6"
-};
+    apiKey: "AIzaSyD1xDBQ7OUX2NLJ1tLBrbo_mEj5Wr32Au0",
+    authDomain: "auiia-ceb74.firebaseapp.com",
+    projectId: "auiia-ceb74",
+    storageBucket: "auiia-ceb74.firebasestorage.app",
+    messagingSenderId: "188832852763",
+    appId: "1:188832852763:web:896d3765f76cd3bb7801be",
+    measurementId: "G-X9J615HYW0"
+  };
 
 // Initialize Firebase
 initializeApp(firebaseConfig);
