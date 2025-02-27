@@ -45,7 +45,7 @@ const routes: Array<RouteRecordRaw> = [
     {
         path: '/user-app',
         name: 'user-app',
-        component: UserappView
+        component: UserappView, // No authentication required here
     },
     {
         path: '/:catchAll(.*)', // Catch all undefined routes
@@ -65,12 +65,17 @@ router.beforeEach((to, _, next) => {
     const currentUser = auth.currentUser;
     const isAuthenticated = !!currentUser;
 
+    // If already logged in, prevent access to login or forgot-password
     if (isAuthenticated && (to.name === 'login' || to.name === 'forgot-password')) {
         next({ name: 'dashboard' });
-    } else if (to.meta.requiresAuth && !isAuthenticated) {
+    } 
+    // If the route requires authentication and the user is not authenticated
+    else if (to.meta.requiresAuth && !isAuthenticated) {
         next({ name: 'login' });
         console.log('force to login....');
-    } else {
+    } 
+    // Allow direct access to user-app without authentication check
+    else {
         next();
     }
 });
