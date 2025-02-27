@@ -15,19 +15,29 @@
       <span>Current Car Count: {{ carCount }}</span>
     </div>
 
-    <!-- ตารางที่จอดรถ -->
-    <div class="parking-grid">
-      <div
-        v-for="slot in parkingSlots"
-        :key="slot.id"
-        :class="['parking-slot', slot.occupied ? 'occupied' : 'available']"
-      >
-        {{ slot.name }}
+    <!-- ปุ่มเพิ่มช่องจอดรถ -->
+    <button @click="addParkingSlot" class="add-button">Add Parking Slot</button>
+
+    <!-- กรอบล้อมช่องจอดรถ -->
+    <div class="parking-area">
+      <div class="entry">ENTRY</div>
+      <div class="parking-container">
+        <div class="parking-grid">
+          <div
+            v-for="slot in parkingSlots"
+            :key="slot.id"
+            :class="['parking-slot', slot.occupied ? 'occupied' : 'available']"
+          >
+            {{ slot.name }}
+          </div>
+        </div>
       </div>
+      <div class="exit">EXIT</div>
     </div>
 
-    <!-- ปุ่ม Logout และ Dashboard -->
+    <!-- ปุ่มต่างๆ -->
     <div class="button-container">
+      <button @click="goToUserPage" class="user-button">Go to User Page</button>
       <button @click="logout" class="logout-button">LOGOUT</button>
       <button @click="goToDashboard" class="dashboard-button">DASHBOARD</button>
     </div>
@@ -46,6 +56,7 @@ const client = mqtt.connect("wss://test.mosquitto.org:8081");
 const carCount = ref(0);
 const lastEntryState = ref(0);
 const lastExitState = ref(0);
+const nextSlotId = ref(9);
 
 const parkingSlots = ref([
   { id: 1, name: "P1", topic: "kmitl/project/irsensor/1", occupied: false },
@@ -60,6 +71,22 @@ const parkingSlots = ref([
 
 const entrySensorTopic = "kmitl/project/irsensor/9";
 const exitSensorTopic = "kmitl/project/irsensor/10";
+
+function addParkingSlot() {
+  const newSlot = {
+    id: nextSlotId.value,
+    name: `P${nextSlotId.value}`,
+    topic: `kmitl/project/irsensor/${nextSlotId.value}`,
+    occupied: false,
+  };
+  parkingSlots.value.push(newSlot);
+  client.subscribe(newSlot.topic, (err) => {
+    if (!err) {
+      console.log(`✅ Subscribed to ${newSlot.topic}`);
+    }
+  });
+  nextSlotId.value += 1;
+}
 
 client.on("connect", () => {
   console.log("✅ MQTT Connected");
@@ -112,6 +139,10 @@ function logout() {
 function goToDashboard() {
   router.push("/dashboard");
 }
+
+function goToUserPage() {
+  router.push("/user-app");
+}
 </script>
 
 <style scoped>
@@ -128,11 +159,13 @@ function goToDashboard() {
   color: white;
 }
 
+/* ปรับระยะห่าง Available และ Occupied */
 .status-container {
   display: flex;
   justify-content: left;
   width: 80%;
   margin-bottom: 15px;
+  gap: 60px;
 }
 
 .status-box {
@@ -156,37 +189,89 @@ function goToDashboard() {
   margin-bottom: 20px;
 }
 
+/* ปุ่ม */
+.add-button, .logout-button, .dashboard-button, .user-button {
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: white;
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.add-button {
+  background-color: #0056b3;
+}
+
+.add-button:hover {
+  background-color: #004085;
+}
+
+.logout-button {
+  background-color: #dc3545;
+}
+
+.logout-button:hover {
+  background-color: #a7001c;
+}
+
+.dashboard-button {
+  background-color: #28a745;
+}
+
+.dashboard-button:hover {
+  background-color: #1e7e34;
+}
+
+.user-button {
+  background-color: #ffc107;
+  color: black;
+}
+
+.user-button:hover {
+  background-color: #d39e00;
+}
+
+.button-container {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+/* พื้นที่จอดรถ + ทางเข้าออก */
+.parking-area {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* กรอบล้อมช่องจอดรถ */
+.parking-container {
+  border: 4px solid white;
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.3);
+}
+
 .parking-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(100px, 1fr));
-  grid-template-rows: repeat(2, minmax(100px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 15px;
-  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 10px;
 }
 
 .parking-slot {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: bold;
   border-radius: 10px;
   width: 100px;
   height: 100px;
-  transition: background 0.3s ease;
-  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.parking-slot.occupied {
-  background: #dc3545;
-  color: white;
-}
-
-.parking-slot.available {
-  background: #28a745;
-  color: white;
 }
 </style>
