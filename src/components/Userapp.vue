@@ -15,28 +15,28 @@
       <span>Current Car Count: ___</span>
     </div>
 
-    <!-- ตารางที่จอดรถ -->
-    <div class="parking-grid">
-      <div
-        v-for="slot in parkingSlots"
-        :key="slot.id"
-        :class="['parking-slot', slot.occupied ? 'occupied' : 'available']"
-      >
-        {{ slot.name }}
+    <!-- กรอบล้อมช่องจอดรถ -->
+    <div class="parking-area">
+      <div class="entry">ENTRY</div>
+      <div class="parking-container">
+        <div class="parking-grid">
+          <div
+            v-for="slot in parkingSlots"
+            :key="slot.id"
+            :class="['parking-slot', slot.occupied ? 'occupied' : 'available']"
+          >
+            {{ slot.name }}
+          </div>
+        </div>
       </div>
+      <div class="exit">EXIT</div>
     </div>
-
-    <!-- ปุ่ม Logout และ Dashboard -->
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { ref } from "vue";
 import mqtt from "mqtt";
-import { auth } from "../firebaseConfig";
-
-const router = useRouter();
 
 // ✅ ใช้ WebSocket Secure (`wss://test.mosquitto.org:8081`)
 const client = mqtt.connect("wss://test.mosquitto.org:8081");
@@ -71,13 +71,6 @@ client.on("message", (topic, message) => {
   const slot = parkingSlots.value.find((s) => s.topic === topic);
   if (slot) {
     slot.occupied = status;
-  }
-});
-
-// **ตรวจสอบการล็อกอิน**
-onMounted(() => {
-  if (!auth.currentUser) {
-    router.push("/login");
   }
 });
 </script>
@@ -137,7 +130,22 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-/* ตารางที่จอดรถ */
+/* กรอบล้อมช่องจอดรถ */
+.parking-area {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* กรอบล้อมช่องจอดรถ */
+.parking-container {
+  border: 4px solid white;
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.3);
+}
+
 .parking-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(100px, 1fr));
@@ -172,41 +180,17 @@ onMounted(() => {
   color: white;
 }
 
-/* ปรับขนาดปุ่ม Logout และ Dashboard */
-.button-container {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  display: flex;
-  gap: 15px;
-}
-
-.logout-button {
-  background: linear-gradient(to right, #ff5733, #ff8d72);
+/* ป้าย ENTRY และ EXIT */
+.entry, .exit {
+  font-size: 18px;
+  font-weight: bold;
   color: white;
-  font-weight: bold;
-  border-radius: 20px;
-  padding: 12px 24px;
-  box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
-  transition: 0.3s;
-}
-
-.logout-button:hover {
-  background: linear-gradient(to right, #c70039, #ff5733);
-}
-
-.dashboard-button {
-  background: linear-gradient(to right, #b2f7ef, #7b8df2);
-  color: black;
-  font-weight: bold;
-  border-radius: 20px;
-  padding: 12px 24px;
-  box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
-  transition: 0.3s;
-}
-
-.dashboard-button:hover {
-  background: linear-gradient(to right, #5de6de, #7b8df2);
+  padding: 10px;
+  text-align: center;
+  background-color: #333;
+  border-radius: 5px;
+  margin: 0 10px;
+  width: 80px;
 }
 
 /* Responsive Design */
@@ -226,11 +210,6 @@ onMounted(() => {
   .parking-grid {
     grid-template-columns: repeat(2, minmax(80px, 1fr));
     grid-template-rows: repeat(4, minmax(80px, 1fr));
-  }
-
-  .button-container {
-    flex-direction: column;
-    align-items: center;
   }
 }
 </style>
