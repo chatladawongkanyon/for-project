@@ -1,11 +1,9 @@
 <template>
   <div class="container">
-    <!-- หัวข้อ -->
     <h1 class="title">SYSTEM CHECK</h1>
-
-    <!-- ตารางเซ็นเซอร์ -->
+    
     <div class="table-container">
-      <div class="table-wrapper">
+      <div class="table-wrapper" v-for="(group, index) in sensorGroups" :key="index">
         <table class="sensor-table">
           <thead>
             <tr>
@@ -14,36 +12,19 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="sensor in leftSensors" :key="sensor.id">
+            <tr v-for="sensor in group" :key="sensor.id">
               <td>{{ sensor.name }}</td>
-              <td>{{ sensor.status || "Waiting..." }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="table-wrapper">
-        <table class="sensor-table">
-          <thead>
-            <tr>
-              <th>Sensor</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="sensor in rightSensors" :key="sensor.id">
-              <td>{{ sensor.name }}</td>
-              <td>{{ sensor.status || "Waiting..." }}</td>
+              <td>{{ getStatusText(sensor.status) }}</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
-
-    <!-- ปุ่ม Logout และ Dashboard -->
+    
     <div class="button-container">
       <button @click="logout" class="logout-button">LOGOUT</button>
       <button @click="goToDashboard" class="dashboard-button">DASHBOARD</button>
+      <button @click="addSensor" class="add-sensor-button">ADD SENSOR</button>
     </div>
   </div>
 </template>
@@ -55,71 +36,60 @@ import mqtt from "mqtt";
 import { auth } from "../firebaseConfig";
 
 const router = useRouter();
-
-// เชื่อมต่อ MQTT Broker
 const client = mqtt.connect("wss://test.mosquitto.org:8081");
 
-// ข้อมูลเซ็นเซอร์
-const leftSensors = ref([
-  { id: 1, name: "number 1", status: "" },
-  { id: 2, name: "number 2", status: "" },
-  { id: 3, name: "number 3", status: "" },
-  { id: 4, name: "number 4", status: "" },
-  { id: 5, name: "number 5", status: "" },
+const sensors = ref([
+  { id: 1, name: "Sensor 1", status: "" },
+  { id: 2, name: "Sensor 2", status: "" },
+  { id: 3, name: "Sensor 3", status: "" },
+  { id: 4, name: "Sensor 4", status: "" },
+  { id: 5, name: "Sensor 5", status: "" },
 ]);
 
-const rightSensors = ref([
-  { id: 6, name: "number 6", status: "" },
-  { id: 7, name: "number 7", status: "" },
-  { id: 8, name: "number 8", status: "" },
-  { id: 9, name: "number 9 (Cars In Count-moter)", status: "" },
-  { id: 10, name: "number 10 (Cars Out Count)", status: "" },
-]);
+const sensorGroups = ref([]);
 
-// เชื่อมต่อและ Subscribe MQTT
+const splitSensors = () => {
+  const mid = Math.ceil(sensors.value.length / 2);
+  sensorGroups.value = [sensors.value.slice(0, mid), sensors.value.slice(mid)];
+};
+
 client.on("connect", () => {
-  console.log("✅ MQTT Connected to wss://test.mosquitto.org:8081");
-  leftSensors.value.concat(rightSensors.value).forEach((sensor) => {
-    client.subscribe(`kmitl/project/irsensor/${sensor.id}`, (err) => {
-      if (!err) {
-        console.log(`✅ Subscribed to kmitl/project/irsensor/${sensor.id}`);
-      }
-    });
+  console.log("✅ MQTT Connected");
+  sensors.value.forEach((sensor) => {
+    client.subscribe(`kmitl/project/irsensor/${sensor.id}`);
   });
 });
 
-// อัปเดตข้อมูลจาก MQTT
 client.on("message", (topic, message) => {
-  const sensorNumber = parseInt(topic.replace("kmitl/project/irsensor/", ""));
-  const statusValue = message.toString();
-
-  let sensorList = [...leftSensors.value, ...rightSensors.value];
-  const sensor = sensorList.find((s) => s.id === sensorNumber);
-  if (sensor) sensor.status = statusValue;
+  const sensorId = parseInt(topic.replace("kmitl/project/irsensor/", ""));
+  const sensor = sensors.value.find((s) => s.id === sensorId);
+  if (sensor) sensor.status = message.toString();
 });
 
-// ตรวจสอบสถานะการล็อกอิน
+const getStatusText = (status) => {
+  if (!status) return "รอการเชื่อมต่อ";
+  return status === "1" ? "ตรวจจับวัตถุ" : "ไม่ตรวจจับวัตถุ";
+};
+
+const addSensor = () => {
+  const newId = sensors.value.length + 1;
+  sensors.value.push({ id: newId, name: `Sensor ${newId}`, status: "" });
+  client.subscribe(`kmitl/project/irsensor/${newId}`);
+  splitSensors();
+};
+
 onMounted(() => {
-  if (!auth.currentUser) {
-    router.push("/login");
-  }
+  if (!auth.currentUser) router.push("/login");
+  splitSensors();
 });
 
-// ฟังก์ชันล็อกเอาต์
-function logout() {
-  auth.signOut()
-    .then(() => {
-      router.push("/login");
-    })
-    .catch((error) => {
-      console.error("Sign out error:", error);
-    });
-}
+const logout = () => {
+  auth.signOut().then(() => router.push("/login"));
+};
 
-// ฟังก์ชันไปหน้า Dashboard
-function goToDashboard() {
+const goToDashboard = () => {
   router.push("/dashboard");
-}
+};
 </script>
 
 <style scoped>
@@ -141,8 +111,8 @@ function goToDashboard() {
 }
 .table-container {
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
-  width: 100%;
   justify-content: center;
 }
 .sensor-table {
@@ -167,18 +137,21 @@ function goToDashboard() {
   gap: 15px;
   margin-top: 20px;
 }
-.logout-button {
-  background: linear-gradient(to right, #ff5733, #ff8d72);
-  color: white;
+.logout-button, .dashboard-button, .add-sensor-button {
   padding: 12px 22px;
   border-radius: 30px;
   transition: all 0.3s;
 }
+.logout-button {
+  background: linear-gradient(to right, #ff5733, #ff8d72);
+  color: white;
+}
 .dashboard-button {
   background: linear-gradient(to right, #b2f7ef, #7b8df2);
   color: black;
-  padding: 12px 22px;
-  border-radius: 30px;
-  transition: all 0.3s;
+}
+.add-sensor-button {
+  background: linear-gradient(to right, #57ff33, #72ff8d);
+  color: black;
 }
 </style>
