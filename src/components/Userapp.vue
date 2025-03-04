@@ -12,7 +12,7 @@
 
     <!-- ตัวนับรถ -->
     <div class="counter-container">
-      <span>Current Car Count: ___</span>
+      <span>Current Car Count: {{ carCount }}</span>
     </div>
 
     <!-- กรอบล้อมช่องจอดรถ -->
@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed, onMounted } from "vue";
 import mqtt from "mqtt";
 
 // ✅ ใช้ WebSocket Secure (`wss://test.mosquitto.org:8081`)
@@ -53,6 +53,11 @@ const parkingSlots = ref([
   { id: 8, name: "P8", topic: "kmitl/project/irsensor/8", occupied: false },
 ]);
 
+// **คำนวณจำนวนรถที่จอดอยู่**
+const carCount = computed(() =>
+  parkingSlots.value.filter(slot => slot.occupied).length
+);
+
 // **เชื่อมต่อและ Subscribe MQTT**
 client.on("connect", () => {
   console.log("✅ MQTT Connected to wss://test.mosquitto.org:8081");
@@ -68,7 +73,7 @@ client.on("connect", () => {
 // **อัปเดตสถานะจาก MQTT**
 client.on("message", (topic, message) => {
   const status = message.toString() === "1"; // 1 = occupied, 0 = available
-  const slot = parkingSlots.value.find((s) => s.topic === topic);
+  const slot = parkingSlots.value.find(s => s.topic === topic);
   if (slot) {
     slot.occupied = status;
   }
@@ -76,7 +81,7 @@ client.on("message", (topic, message) => {
 </script>
 
 <style scoped>
-/* พื้นหลังที่มีสีสัน */
+/* พื้นหลัง */
 .container {
   display: flex;
   flex-direction: column;
@@ -86,11 +91,10 @@ client.on("message", (topic, message) => {
   width: 100%;
   background: linear-gradient(to right, #3a7bd5, #3a6073);
   padding: 20px;
-  box-sizing: border-box;
   color: white;
 }
 
-/* สถานะ Available & Occupied */
+/* สถานะจอดรถ */
 .status-container {
   display: flex;
   justify-content: left;
@@ -130,14 +134,14 @@ client.on("message", (topic, message) => {
   margin-bottom: 20px;
 }
 
-/* กรอบล้อมช่องจอดรถ */
+/* พื้นที่จอดรถ */
 .parking-area {
   display: flex;
   align-items: center;
   gap: 20px;
 }
 
-/* กรอบล้อมช่องจอดรถ */
+/* กล่องช่องจอดรถ */
 .parking-container {
   border: 4px solid white;
   border-radius: 10px;
