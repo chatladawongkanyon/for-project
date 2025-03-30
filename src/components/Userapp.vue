@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <!-- สถานะที่จอดรถ -->
+
     <div class="status-container">
       <div class="status">
         <div class="status-box available"></div> Available
@@ -10,110 +10,177 @@
       </div>
     </div>
 
-    <!-- ตัวนับรถ -->
     <div class="counter-container">
-      <span>Current Car Count: {{ carCount }}</span>
+      <span>Current Car Count: {{ inCarCount }}</span>
     </div>
 
-    <!-- กรอบล้อมช่องจอดรถ -->
-    <div class="parking-area">
-      <div class="entry">ENTRY</div>
-      <div class="parking-container">
-        <div class="parking-grid">
-          <div
-            v-for="slot in parkingSlots"
-            :key="slot.id"
-            :class="['parking-slot', slot.occupied ? 'occupied' : 'available']"
-          >
-            {{ slot.name }}
-          </div>
+    <div class="parking-layout">
+      <div v-for="(row, rowIndex) in parkingRows" :key="rowIndex" class="parking-row">
+        <div v-for="element in row" :key="element.id"
+          :class="['parking-slot', element.type, { 'lane-block': isLaneBlock(rowIndex, element), occupied: element.occupied, available: !element.occupied }, element.type === 'lane' ? `rotated-${element.rotated}` : '']"
+        >
+          <span v-if="element.type === 'lane'" class="arrow">➡️</span>
+          <span v-else>{{ element.name }}</span>
         </div>
       </div>
-      <div class="exit">EXIT</div>
     </div>
   </div>
 </template>
 
+
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import mqtt from "mqtt";
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import mqtt from 'mqtt'
+import { auth } from '../firebaseConfig'
+import { onAuthStateChanged } from 'firebase/auth'
 
-// ✅ ใช้ WebSocket Secure (`wss://test.mosquitto.org:8081`)
-const client = mqtt.connect("wss://test.mosquitto.org:8081");
+const router = useRouter()
+const client = mqtt.connect('wss://test.mosquitto.org:8081')
 
-// **สถานะที่จอดรถ**
-const parkingSlots = ref([
-  { id: 1, name: "P1", topic: "kmitl/project/irsensor/1", occupied: false },
-  { id: 2, name: "P2", topic: "kmitl/project/irsensor/2", occupied: false },
-  { id: 3, name: "P3", topic: "kmitl/project/irsensor/3", occupied: false },
-  { id: 4, name: "P4", topic: "kmitl/project/irsensor/4", occupied: false },
-  { id: 5, name: "P5", topic: "kmitl/project/irsensor/5", occupied: false },
-  { id: 6, name: "P6", topic: "kmitl/project/irsensor/6", occupied: false },
-  { id: 7, name: "P7", topic: "kmitl/project/irsensor/7", occupied: false },
-  { id: 8, name: "P8", topic: "kmitl/project/irsensor/8", occupied: false },
-]);
+const ir9Prev = ref("0")
+const ir10Prev = ref("0")
+const ir9Count = ref(0)
+const ir10Count = ref(0)
+const inCarCount = ref(0)
 
-// **คำนวณจำนวนรถที่จอดอยู่**
-const carCount = computed(() =>
-  parkingSlots.value.filter(slot => slot.occupied).length
-);
+const debounceMs = 1000
+let lastIR9Time = 0
+let lastIR10Time = 0
 
-// **เชื่อมต่อและ Subscribe MQTT**
-client.on("connect", () => {
-  console.log("✅ MQTT Connected to wss://test.mosquitto.org:8081");
-  parkingSlots.value.forEach((slot) => {
-    client.subscribe(slot.topic, (err) => {
-      if (!err) {
-        console.log(`✅ Subscribed to ${slot.topic}`);
+const parkingRows = ref([])
+
+onMounted(() => {
+    // ✅ ไม่เช็ค login แล้วก็ยังทำงานต่อได้
+    client.on("connect", () => {
+      client.subscribe("kmitl/project/parking-layout")
+      client.subscribe("kmitl/project/irsensor/9")
+      client.subscribe("kmitl/project/irsensor/10")
+    })
+
+    client.on("message", (topic, message) => {
+      const msg = message.toString().trim()
+      const now = Date.now()
+
+      if (topic === "kmitl/project/parking-layout") {
+        try {
+          const layout = JSON.parse(msg)
+          parkingRows.value = layout
+
+          layout.flat().forEach(slot => {
+            if (slot.topic) client.subscribe(slot.topic)
+          })
+        } catch (e) {
+          console.error("Failed to parse layout:", e)
+        }
+        return
       }
-    });
-  });
-});
 
-// **อัปเดตสถานะจาก MQTT**
-client.on("message", (topic, message) => {
-  const status = message.toString() === "1"; // 1 = occupied, 0 = available
-  const slot = parkingSlots.value.find(s => s.topic === topic);
-  if (slot) {
-    slot.occupied = status;
-  }
-});
+      if (topic === "kmitl/project/irsensor/9") {
+        if (msg === "1" && ir9Prev.value === "0" && now - lastIR9Time > debounceMs) {
+          ir9Count.value++
+          lastIR9Time = now
+          updateInCarCount()
+        }
+        ir9Prev.value = msg
+        return
+      }
+
+      if (topic === "kmitl/project/irsensor/10") {
+        if (msg === "1" && ir10Prev.value === "0" && now - lastIR10Time > debounceMs) {
+          ir10Count.value++
+          lastIR10Time = now
+          updateInCarCount()
+        }
+        ir10Prev.value = msg
+        return
+      }
+
+      const slot = parkingRows.value.flat().find(s => s.topic === topic)
+      if (slot) slot.occupied = msg === "1"
+    })
+  })
+
+function updateInCarCount() {
+  inCarCount.value = Math.max(0, ir9Count.value - ir10Count.value)
+}
+
+function isLaneBlock(rowIndex, element) {
+  const row = parkingRows.value[rowIndex]
+  const index = row.indexOf(element)
+  return index > 0 && row[index - 1].type === 'lane'
+}
 </script>
 
+
 <style scoped>
-/* พื้นหลัง */
 .container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  width: 100%;
+  min-width: 100vw; /* ✅ ป้องกันช่องขอบดำด้านขวา */
   background: linear-gradient(to right, #3a7bd5, #3a6073);
   padding: 20px;
   color: white;
+  overflow-x: auto;
+  box-sizing: border-box;
 }
 
-/* สถานะจอดรถ */
-.status-container {
+.top-right-buttons {
+  position: absolute;
+  top: 20px;
+  right: 20px;
   display: flex;
-  justify-content: left;
-  width: 80%;
-  margin-bottom: 15px;
+  gap: 10px;
+}
+
+.logout-button,
+.dashboard-button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: black;
+}
+
+.logout-button {
+  background: linear-gradient(to right, #ff5733, #ff8d72);
+}
+
+.dashboard-button {
+  background: linear-gradient(to right, #b2f7ef, #7b8df2);
+}
+
+.logout-button:hover,
+.dashboard-button:hover {
+  opacity: 0.8;
+}
+
+.status-container {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 12px 18px;
+  border-radius: 10px;
 }
 
 .status {
   display: flex;
   align-items: center;
-  margin-right: 20px;
-  font-size: 18px;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: bold;
 }
 
 .status-box {
   width: 20px;
   height: 20px;
-  border-radius: 3px;
-  margin-right: 5px;
+  border-radius: 5px;
 }
 
 .available {
@@ -124,96 +191,109 @@ client.on("message", (topic, message) => {
   background-color: #dc3545;
 }
 
-/* ตัวนับรถ */
-.counter-container {
+.parking-layout {
   display: flex;
-  justify-content: space-around;
-  width: 100%;
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 20px;
-}
-
-/* พื้นที่จอดรถ */
-.parking-area {
-  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 20px;
-}
-
-/* กล่องช่องจอดรถ */
-.parking-container {
-  border: 4px solid white;
-  border-radius: 10px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.3);
-}
-
-.parking-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(100px, 1fr));
-  grid-template-rows: repeat(2, minmax(100px, 1fr));
   gap: 10px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 15px;
-  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.parking-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.parking-slot,
+.lane,
+.entrance,
+.exit {
+  flex-shrink: 0;
 }
 
 .parking-slot {
+  width: 80px;
+  height: 80px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 24px;
   font-weight: bold;
-  border-radius: 10px;
-  width: 100px;
-  height: 100px;
-  transition: background 0.3s ease;
-  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  background: rgb(7, 192, 50);
 }
 
 .parking-slot.occupied {
-  background: #dc3545;
-  color: white;
+  background: rgb(218, 4, 25);
 }
 
-.parking-slot.available {
-  background: #28a745;
-  color: white;
+.entrance {
+  background-color: #1e90ff;
+  width: 120px;
+  height: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* ป้าย ENTRY และ EXIT */
-.entry, .exit {
-  font-size: 18px;
-  font-weight: bold;
-  color: white;
-  padding: 10px;
-  text-align: center;
-  background-color: #333;
-  border-radius: 5px;
-  margin: 0 10px;
-  width: 80px;
+.exit {
+  background-color: rgb(246, 8, 8);
+  width: 120px;
+  height: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* Responsive Design */
+.lane {
+  background-color: #6c757d;
+  width: 60px;
+  height: 80px;
+  margin: 0 5px;
+  display: inline-block;
+  cursor: pointer;
+  position: relative;
+}
+
+.lane .arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  transition: transform 0.3s ease;
+}
+
+.lane.rotated-1 .arrow {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.lane.rotated-2 .arrow {
+  transform: translate(-50%, -50%) rotate(180deg);
+}
+
+.lane.rotated-3 .arrow {
+  transform: translate(-50%, -50%) rotate(270deg);
+}
+
+/* ✅ Responsive: มือถือเท่านั้นให้เลื่อนจอแทน */
 @media (max-width: 768px) {
-  .parking-grid {
-    grid-template-columns: repeat(4, minmax(80px, 1fr));
-    grid-template-rows: repeat(2, minmax(80px, 1fr));
+  .container {
+    max-width: 100vw;
+    overflow-x: auto;
+  }
+
+  .parking-layout {
+    width: max-content;
+  }
+
+  .parking-row {
+    width: max-content;
   }
 
   .parking-slot {
-    width: 80px;
-    height: 80px;
-  }
-}
-
-@media (max-width: 480px) {
-  .parking-grid {
-    grid-template-columns: repeat(2, minmax(80px, 1fr));
-    grid-template-rows: repeat(4, minmax(80px, 1fr));
+    width: 60px;
+    height: 60px;
   }
 }
 </style>
