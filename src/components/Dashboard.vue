@@ -2,7 +2,7 @@
   <div class="container">
     <!-- Header with Rounded Bottom -->
     <div class="header">
-      AUIIA CAR PARKING SYSTEMS
+      AUIIA CAR PARKING SYSTEM
     </div>
 
     <!-- Dashboard Card -->
@@ -141,7 +141,7 @@ export default {
 /* Logout Button - อยู่มุมล่างขวา */
 .logout-button {
   position: absolute;
-  bottom: 20px;
+  top: 70px;   /* ✅ อยู่ใต้ header */
   right: 20px;
   background: linear-gradient(to right, #ff5733, #ff8d72);
   color: white;
@@ -150,7 +150,9 @@ export default {
   padding: 12px 24px;
   box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
   transition: 0.3s;
+  z-index: 5;  /* ✅ เผื่อให้ลอยอยู่บน dashboard */
 }
+
 
 .logout-button:hover {
   background: linear-gradient(to right, #c70039, #ff5733);
