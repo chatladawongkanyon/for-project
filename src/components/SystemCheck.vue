@@ -1,7 +1,13 @@
 <template>
   <div class="container">
+    <!-- ปุ่ม Logout และ Dashboard ไปไว้ที่มุมขวาบน -->
+    <div class="top-right-buttons">
+      <button @click="goToDashboard" class="dashboard-button">DASHBOARD</button>
+      <button @click="logout" class="logout-button">LOGOUT</button>
+    </div>
+
     <h1 class="title">SYSTEM CHECK</h1>
-    
+
     <div class="table-container">
       <div class="table-wrapper" v-for="(group, index) in sensorGroups" :key="index">
         <table class="sensor-table">
@@ -20,10 +26,9 @@
         </table>
       </div>
     </div>
-    
+
+    <!-- ปุ่มเพิ่มเซ็นเซอร์ ขยับลงเล็กน้อย -->
     <div class="button-container">
-      <button @click="logout" class="logout-button">LOGOUT</button>
-      <button @click="goToDashboard" class="dashboard-button">DASHBOARD</button>
       <button @click="addSensor" class="add-sensor-button">ADD SENSOR</button>
     </div>
   </div>
@@ -44,6 +49,11 @@ const sensors = ref([
   { id: 3, name: "Sensor 3", status: "" },
   { id: 4, name: "Sensor 4", status: "" },
   { id: 5, name: "Sensor 5", status: "" },
+  { id: 6, name: "Sensor 6", status: "" },
+  { id: 7, name: "Sensor 7", status: "" },
+  { id: 8, name: "Sensor 8", status: "" },
+  { id: 9, name: "Sensor 9", status: "" },
+  { id: 10, name: "Sensor 10", status: "" },
 ]);
 
 const sensorGroups = ref([]);
@@ -67,8 +77,8 @@ client.on("message", (topic, message) => {
 });
 
 const getStatusText = (status) => {
-  if (!status) return "รอการเชื่อมต่อ";
-  return status === "1" ? "ตรวจจับวัตถุ" : "ไม่ตรวจจับวัตถุ";
+  if (!status) return "ยังไม่เชื่อมต่อกับระบบ";
+  return status === "1" ? "ตรวจพบรถยนต์" : "ตรวจไม่พบรถยนต์";
 };
 
 const addSensor = () => {
@@ -102,6 +112,32 @@ const goToDashboard = () => {
   background: white;
   padding: 20px;
 }
+
+/* ปุ่ม Logout และ Dashboard ไปไว้ที่มุมขวาบน */
+.top-right-buttons {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.logout-button {
+  background: linear-gradient(to right, #ff5733, #ff8d72);
+  color: black;
+  padding: 10px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.dashboard-button {
+  background: linear-gradient(to right, #b2f7ef, #7b8df2);
+  color: black;
+  padding: 10px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 .title {
   font-size: 28px;
   font-weight: bold;
@@ -109,12 +145,14 @@ const goToDashboard = () => {
   text-transform: uppercase;
   color: #0047AB;
 }
+
 .table-container {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
   justify-content: center;
 }
+
 .sensor-table {
   border-collapse: collapse;
   width: 100%;
@@ -122,36 +160,32 @@ const goToDashboard = () => {
   text-align: center;
   border: 2px solid #2E8B57;
 }
+
 .sensor-table th {
   background: #2E8B57;
   padding: 14px;
   color: white;
 }
+
 .sensor-table td {
   border: 1px solid #2E8B57;
   padding: 12px;
   background: #E0F7FA;
 }
+
+/* ปุ่มเพิ่มเซ็นเซอร์ ขยับลงเล็กน้อย */
 .button-container {
   display: flex;
-  gap: 15px;
-  margin-top: 20px;
+  justify-content: center;
+  margin-top: 30px;
 }
-.logout-button, .dashboard-button, .add-sensor-button {
-  padding: 12px 22px;
-  border-radius: 30px;
-  transition: all 0.3s;
-}
-.logout-button {
-  background: linear-gradient(to right, #ff5733, #ff8d72);
-  color: white;
-}
-.dashboard-button {
-  background: linear-gradient(to right, #b2f7ef, #7b8df2);
-  color: black;
-}
+
 .add-sensor-button {
   background: linear-gradient(to right, #57ff33, #72ff8d);
   color: black;
+  padding: 12px 22px;
+  border-radius: 30px;
+  transition: all 0.3s;
+  margin-top: 15px; /* เพิ่มระยะห่างด้านบน */
 }
 </style>
