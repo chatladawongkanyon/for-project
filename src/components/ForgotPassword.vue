@@ -5,12 +5,12 @@
       <form @submit.prevent="resetPassword" class="space-y-4 w-full">
         <div class="w-full">
           <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-          <input v-model="email" type="email" id="email" class="mt-1 p-2 w-full border-gray-300 rounded-md">
+          <input v-model="email" type="email" id="email" class="mt-1 p-3 w-full bg-white text-black border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
         </div>
         <button type="submit" class="w-full bg-blue-500 hover:bg-blue-700 text-white p-3 rounded-md transition duration-300">Reset Password</button>
         <p v-if="showError" class="text-red-500 text-sm mt-2">{{ errorMessage }}</p>
       </form>
-      <button @click="goToLogin" class="mt-4 text-blue-500 cursor-pointer">Back to Login</button>
+      <button @click="goToLogin" class="mt-4 text-blue-500 cursor-pointer hover:opacity-80 transition duration-300">Back to Login</button>
     </div>
   </div>
 </template>
@@ -24,6 +24,7 @@ const email = ref("");
 const showError = ref(false);
 const errorMessage = ref("");
 
+// Function to reset password via email
 async function resetPassword() {
   try {
     const auth = getAuth();
@@ -31,49 +32,60 @@ async function resetPassword() {
     // Password reset email sent successfully
     // You can add a success message here if needed
   } catch (error) {
-    // Check if error is an instance of Error
     if (error instanceof Error) {
       showError.value = true;
       errorMessage.value = error.message;
     } else {
-      // If error is not an instance of Error, handle it accordingly
       console.error("Unknown error occurred:", error);
     }
   }
 }
 
+// Function to navigate back to login page
 function goToLogin() {
   router.push('/login');
 }
 </script>
 
-
 <style scoped>
-/* Your scoped styles */
-input[type="email"],
-button {
-  outline: none;
+/* Custom font and colors for the entire page */
+body {
+  font-family: 'Arial', sans-serif; /* Change the font */
 }
 
-input[type="email"],
-button,
-a {
-  transition: all 0.3s ease;
+/* Input styling */
+input[type="email"] {
+  outline: none;
+  background-color: white;
+  color: black;
+  font-size: 1rem;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
 }
 
 input[type="email"]:focus {
   border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(72, 108, 232, 0.3);
 }
 
+/* Button styling */
 button {
   cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 button:hover {
   opacity: 0.8;
 }
 
+/* Link hover styling */
 a:hover {
   text-decoration: underline;
+}
+
+/* Error message styling */
+p {
+  font-size: 0.875rem;
 }
 </style>
