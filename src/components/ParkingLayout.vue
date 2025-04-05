@@ -19,9 +19,7 @@
         <draggable v-model="parkingRows[rowIndex]" group="parking-group" item-key="id" class="parking-row">
           <template #item="{ element }">
             <div v-if="element.type === 'lane'"
-             :class="['parking-slot', element.type, { 'lane-block': isLaneBlock(rowIndex, element), occupied: element.occupied, available: !element.occupied }, 'rotated-' + element.rotated]"
-
-              @click="toggleLaneDirection(element.id)">
+              :class="['parking-slot', element.type, { 'lane-block': isLaneBlock(rowIndex, element), occupied: element.occupied, available: !element.occupied }, 'rotated-' + element.rotated]">
               <span class="arrow">➡️</span>
             </div>
             <div v-else
@@ -54,49 +52,38 @@ import { useRouter } from 'vue-router'
 import mqtt from 'mqtt'
 import draggable from 'vuedraggable'
 import { auth } from '../firebaseConfig'
+import { onAuthStateChanged } from 'firebase/auth'
 
 const router = useRouter()
 const client = mqtt.connect('wss://test.mosquitto.org:8081')
 
-const isAuthReady = ref(false)  // เพิ่มตัวนี้
-
-onMounted(() => {
-  onAuthStateChanged(auth, (user) => {
-    if (!user) {
-      router.push("/login")
-    } else {
-      isAuthReady.value = true
-
-      // ทำ MQTT และอื่น ๆ ที่เกี่ยวข้องที่นี่
-      client.on("connect", () => {
-        parkingRows.value.flat().forEach(slot => slot.topic && client.subscribe(slot.topic))
-        client.subscribe("kmitl/project/irsensor/9")
-        client.subscribe("kmitl/project/irsensor/10")
-        publishLayout()
-      })
-
-      client.on("message", (topic, message) => {
-        const msg = message.toString().trim()
-        const now = Date.now()
-        if (topic.endsWith("/9")) handleSensor(msg, ir9Prev, ir9Count, now, () => lastIR9Time = now)
-        else if (topic.endsWith("/10")) handleSensor(msg, ir10Prev, ir10Count, now, () => lastIR10Time = now)
-        else {
-          const id = parseInt(topic.split("/").pop())
-          const sensor = parkingRows.value.flat().find(s => s.topic?.endsWith(id))
-          if (sensor) sensor.occupied = msg === "1"
-        }
-      })
-    }
-  })
-})
-
-
-// Car Count & Debounce
-const ir9Prev = ref("0"), ir10Prev = ref("0"), ir9Count = ref(0), ir10Count = ref(0), inCarCount = ref(0)
-const debounceMs = 1000
+const ir9Count = ref(0), ir10Count = ref(0), inCarCount = ref(0)
 let lastIR9Time = 0, lastIR10Time = 0
+const debounceMs = 1000
+const ir9Ready = ref(true), ir10Ready = ref(true)
 
-// Layout
+function handleSensor(msg, sensorNumber) {
+  const now = Date.now()
+  if (sensorNumber === 9) {
+    if (msg === "1" && ir9Ready.value && now - lastIR9Time > debounceMs) {
+      ir9Count.value++
+      ir9Ready.value = false
+      lastIR9Time = now
+      updateInCarCount()
+    }
+    if (msg === "0") ir9Ready.value = true
+  }
+  if (sensorNumber === 10) {
+    if (msg === "1" && ir10Ready.value && now - lastIR10Time > debounceMs) {
+      ir10Count.value++
+      ir10Ready.value = false
+      lastIR10Time = now
+      updateInCarCount()
+    }
+    if (msg === "0") ir10Ready.value = true
+  }
+}
+
 const defaultLayout = [
   [
     { id: 1, name: "P1", topic: "kmitl/project/irsensor/1", occupied: false, type: 'parking' },
@@ -113,7 +100,7 @@ const defaultLayout = [
     { id: 5, name: "P5", topic: "kmitl/project/irsensor/5", occupied: false, type: 'parking' },
     { id: 6, name: "P6", topic: "kmitl/project/irsensor/6", occupied: false, type: 'parking' },
     { id: 7, name: "P7", topic: "kmitl/project/irsensor/7", occupied: false, type: 'parking' },
-    { id: 8, name: "P8", topic: "kmitl/project/irsensor/8", occupied: false, type: 'parking' }
+    { id: 8, name: "P8", topic: "kmitl/project/irsensor/8", occupied: false, type: 'parking' },
   ]
 ]
 
@@ -123,99 +110,81 @@ watch(parkingRows, val => {
   localStorage.setItem("parkingLayout", JSON.stringify(val))
 }, { deep: true })
 
-import { onAuthStateChanged } from 'firebase/auth'
+const savedCarCount = localStorage.getItem("inCarCount")
+if (savedCarCount !== null) {
+  inCarCount.value = parseInt(savedCarCount)
+}
 
 onMounted(() => {
   onAuthStateChanged(auth, (user) => {
     if (!user) {
       router.push("/login")
-      return
-    }
+    } else {
+      client.on("connect", () => {
+        parkingRows.value.flat().forEach(slot => slot.topic && client.subscribe(slot.topic))
+        client.subscribe("kmitl/project/irsensor/9")
+        client.subscribe("kmitl/project/irsensor/10")
+        client.publish("kmitl/project/carcount", inCarCount.value.toString(), { retain: true })
+        publishLayout()
+      })
 
-    // 👇 move all logic here
-    client.on("connect", () => {
-      console.log("✅ MQTT Connected")
-      parkingRows.value.flat().forEach(slot => slot.topic && client.subscribe(slot.topic))
-      client.subscribe("kmitl/project/irsensor/9")
-      client.subscribe("kmitl/project/irsensor/10")
-      publishLayout()
-    })
+      client.on("message", (topic, message) => {
+        const msg = message.toString().trim()
 
-    client.on("message", (topic, message) => {
-      const msg = message.toString().trim()
-      const now = Date.now()
-      if (topic.endsWith("/9")) handleSensor(msg, ir9Prev, ir9Count, now, () => lastIR9Time = now)
-      else if (topic.endsWith("/10")) handleSensor(msg, ir10Prev, ir10Count, now, () => lastIR10Time = now)
-      else {
+        if (topic === "kmitl/project/irsensor/9") return handleSensor(msg, 9)
+        if (topic === "kmitl/project/irsensor/10") return handleSensor(msg, 10)
+
         const id = parseInt(topic.split("/").pop())
         const sensor = parkingRows.value.flat().find(s => s.topic?.endsWith(id))
         if (sensor) sensor.occupied = msg === "1"
-      }
-    })
+      })
+    }
   })
 })
 
-function handleSensor(msg, prevRef, countRef, now, updateTime) {
-  if (msg === "1" && prevRef.value === "0" && now - (updateTime === lastIR9Time ? lastIR9Time : lastIR10Time) > debounceMs) {
-    countRef.value++
-    updateTime()
-    updateInCarCount()
-  }
-  prevRef.value = msg
-}
 function updateInCarCount() {
-  inCarCount.value = Math.max(0, ir9Count.value - ir10Count.value)
+  const count = Math.max(0, ir9Count.value - ir10Count.value)
+  inCarCount.value = count
+  localStorage.setItem("inCarCount", count)
+  client.publish("kmitl/project/carcount", count.toString(), { retain: true })
 }
-function logout() {
-  auth.signOut().then(() => router.push("/login"))
-}
-function goToDashboard() {
-  router.push("/dashboard")
-}
-function publishLayout() {
-  client.publish("kmitl/project/parking-layout", JSON.stringify(parkingRows.value), { retain: true })
-}
+
+function logout() { auth.signOut().then(() => router.push("/login")) }
+function goToDashboard() { router.push("/dashboard") }
+function publishLayout() { client.publish("kmitl/project/parking-layout", JSON.stringify(parkingRows.value), { retain: true }) }
+function addNewRow() { parkingRows.value.push([]); publishLayout() }
+function removeRow() { if (parkingRows.value.length > 1) parkingRows.value.pop(); publishLayout() }
 function addParkingSlot() {
-  const allSlots = parkingRows.value.flat()
-  const parkingNames = allSlots
-    .filter(s => s.type === 'parking' && s.name.startsWith('P'))
-    .map(s => parseInt(s.name.replace('P', '')))
-    .filter(n => !isNaN(n))
-
-  const nextNumber = parkingNames.length > 0 ? Math.max(...parkingNames) + 1 : 1
-  const newSlot = {
-    id: Date.now(), // ป้องกันซ้ำ
-    name: `P${nextNumber}`,
-    topic: `kmitl/project/irsensor/${nextNumber}`,
-
+  const all = parkingRows.value.flat()
+  const nums = all.filter(s => s.type === 'parking' && s.name.startsWith('P')).map(s => parseInt(s.name.slice(1)))
+  const next = nums.length ? Math.max(...nums) + 1 : 1
+  const topic = `kmitl/project/irsensor/${next}`
+  const slot = {
+    id: next,
+    name: `P${next}`,
+    topic: topic,
     occupied: false,
     type: 'parking'
   }
+  parkingRows.value.at(-1).push(slot)
+  client.subscribe(topic)  // Subscribe ใหม่หลังจากเพิ่ม slot
+  publishLayout()
+}
 
-  parkingRows.value.at(-1).push(newSlot)
-  client.subscribe(newSlot.topic)
-  publishLayout()
-}
-function addNewRow() {
-  parkingRows.value.push([])
-  publishLayout()
-}
-function removeRow() {
-  if (parkingRows.value.length > 1) parkingRows.value.pop()
-  publishLayout()
-}
-function addEntrance() {
-  parkingRows.value[1].unshift({ id: "entrance", name: "Entrance", occupied: false, type: 'entrance' })
-  publishLayout()
-}
-function addExit() {
-  parkingRows.value[1].push({ id: "exit", name: "Exit", occupied: false, type: 'exit' })
-  publishLayout()
-}
+
+function addEntrance() { parkingRows.value[1].unshift({ id: "entrance", name: "Entrance", occupied: false, type: 'entrance' }); publishLayout() }
+function addExit() { parkingRows.value[1].push({ id: "exit", name: "Exit", occupied: false, type: 'exit' }); publishLayout() }
 function addLane() {
-  parkingRows.value[0].splice(1, 0, { id: `lane-${Date.now()}`, name: "Lane", occupied: false, type: 'lane', rotated: 0 })
-  publishLayout()
+  parkingRows.value[0].splice(1, 0, {
+    id: `lane-${Date.now()}`,
+    name: "Lane",
+    occupied: false,
+    type: 'lane',
+    rotated: 0
+  });
+  publishLayout();
 }
+
 function removeLastElement() {
   for (let i = parkingRows.value.length - 1; i >= 0; i--) {
     if (parkingRows.value[i].length > 0) {
@@ -227,8 +196,7 @@ function removeLastElement() {
 }
 function toggleLaneDirection(id) {
   const lane = parkingRows.value.flat().find(s => s.id === id && s.type === 'lane')
-  if (lane) lane.rotated = (lane.rotated + 1) % 4
-  publishLayout()
+  if (lane) { lane.rotated = (lane.rotated + 1) % 4; publishLayout() }
 }
 function isLaneBlock(rowIndex, element) {
   const row = parkingRows.value[rowIndex]
@@ -236,6 +204,50 @@ function isLaneBlock(rowIndex, element) {
   return index > 0 && row[index - 1].type === 'lane'
 }
 </script>
+
+<style scoped>
+/* Responsive Layout for parking slots and rows */
+.parking-layout {
+  width: 100%;
+  overflow-x: auto;
+  padding: 10px 0;
+}
+.parking-row {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+  padding: 5px 0;
+}
+
+/* Slot Styling */
+.parking-slot, .lane, .entrance, .exit {
+  flex-shrink: 0;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(to right, #3a7bd5, #3a6073);
+  padding: 20px;
+  color: white;
+  width: 100%;
+  max-width: 100%;
+}
+
+.top-right-buttons {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+/* Rest of the styles from before remain unchanged */
+</style>
+
 
 <style scoped>
 /* ย่อความยาว: ใช้ style เดิมทั้งหมด เช่นเดียวกับในไฟล์ก่อนหน้า
@@ -483,11 +495,5 @@ function isLaneBlock(rowIndex, element) {
     overflow-x: auto;
   }
 }
-
-
-
-
-
-
 
 </style>
